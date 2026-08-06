@@ -2,3 +2,6 @@ Run "docker compose up -d --build" for the first run.
 Run "docker compose up -d" for the other runs.
 
 You can use "openssl rand -base64 32" to generate a token for the app.
+
+Google's Gemini was used to convert bash HTTP requests to Go code.
+I realized there is a cloudflare library just for Go, so I will probably change the AI code to that in the future.
