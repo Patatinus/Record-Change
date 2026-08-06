@@ -1,2 +1,4 @@
 Run "docker compose up -d --build" for the first run.
 Run "docker compose up -d" for the other runs.
+
+You can use "openssl rand -base64 32" to generate a token for the app.

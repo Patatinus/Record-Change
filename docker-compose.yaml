@@ -1,0 +1,9 @@
+services:
+  dns-updater:
+    build: .
+    container_name: dns-updater-api
+    ports:
+      - "58371:8080"
+    env_file:
+      - .env
+    restart: unless-stopped
