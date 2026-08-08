@@ -1,15 +1,16 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"strings"
 
 	"os"
+
+	"github.com/cloudflare/cloudflare-go/v7"
+	"github.com/cloudflare/cloudflare-go/v7/dns"
+	"github.com/cloudflare/cloudflare-go/v7/option"
 
 	"github.com/gin-gonic/gin"
 )
@@ -31,50 +32,28 @@ type UpdateDNSRecord struct {
 }
 
 func getIP(c *gin.Context) {
-
-	// curl https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$DNS_RECORD_ID \
-	// -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"
-
 	zoneID := os.Getenv("CF_ZONE_ID")
 	apiToken := os.Getenv("CF_API_TOKEN")
-
 	recordID := os.Getenv("CF_DNS_RECORD_ID")
 
-	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records/%s", zoneID, recordID)
-
-	req, err := http.NewRequest("GET", url, nil)
-
-	req.Header.Add("Authorization", "Bearer "+apiToken)
-	req.Header.Add("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	client := cloudflare.NewClient(
+		option.WithAPIToken(apiToken),
+	)
+	recordResponse, err := client.DNS.Records.Get(
+		c.Request.Context(),
+		recordID,
+		dns.RecordGetParams{
+			ZoneID: cloudflare.F(zoneID),
+		},
+	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		fmt.Println("Error executing request:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read the DNS record."})
+		fmt.Printf("Cloudflare API Error: %+v\n", err)
 		return
 	}
+	c.JSON(http.StatusOK, gin.H{"content": recordResponse.Content})
+	fmt.Printf("%+v\n", recordResponse)
 
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		fmt.Println("Error reading response body:", err)
-		return
-	}
-
-	var responseData CloudflareResponse
-
-	// Unmarshal converts the raw byte body into our map
-	if err := json.Unmarshal(body, &responseData); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		fmt.Println("Error parsing JSON:", err)
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"content": responseData.Result.IP})
-	fmt.Printf("Extracted Data: %#v\n", responseData.Result.IP)
 }
 
 func patchIP(c *gin.Context) {
@@ -85,12 +64,12 @@ func patchIP(c *gin.Context) {
 		return
 	}
 
-	candidateIP := newIP.IP
-	cleanIP := strings.TrimSpace(candidateIP)
+	cleanIP := strings.TrimSpace(newIP.IP)
 
 	ip := net.ParseIP(cleanIP)
-	if ip == nil && ip.To4() == nil {
+	if ip == nil || ip.To4() == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Provided string is not a valid IPv4 address"})
+		fmt.Printf("Invalid ip address: %s\n", cleanIP)
 		return
 	}
 
@@ -98,45 +77,27 @@ func patchIP(c *gin.Context) {
 	apiToken := os.Getenv("CF_API_TOKEN")
 	recordID := os.Getenv("CF_DNS_RECORD_ID")
 
-	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records/%s", zoneID, recordID)
+	client := cloudflare.NewClient(
+		option.WithAPIToken(apiToken),
+	)
 
-	payloadData := UpdateDNSRecord{
-		Content: cleanIP,
-	}
-
-	jsonData, err := json.Marshal(payloadData)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		fmt.Println("Error marshaling JSON:", err)
-		return
-	}
-
-	req, err := http.NewRequest("PATCH", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		fmt.Println("Error creating request:", err)
-		return
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiToken)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println("Error executing request:", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode == 200 {
+	recordResponse, err := client.DNS.Records.Edit(
+		c.Request.Context(),
+		recordID,
+		dns.RecordEditParams{
+			ZoneID: cloudflare.F(zoneID),
+			Body: dns.ARecordParam{
+				Type:    cloudflare.F(dns.ARecordTypeA),
+				Content: cloudflare.F(cleanIP),
+			},
+		},
+	)
+	if err == nil {
 		c.JSON(http.StatusOK, gin.H{"message": "Successfully changed the IP to " + cleanIP})
-		fmt.Println("Successfully updated DNS record!")
-		// Optional: You could unmarshal the response body here to confirm the new IP
+		fmt.Printf("Updated Record: %+v\n", recordResponse)
 	} else {
-		c.JSON(resp.StatusCode, gin.H{"error": "Failed to update.", "response": string(body)})
-		fmt.Printf("Failed to update. Status: %d, Response: %s\n", resp.StatusCode, string(body))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update the DNS record."})
+		fmt.Printf("Cloudflare API Error: %+v\n", err)
 	}
 }
 
