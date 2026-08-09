@@ -19,18 +19,6 @@ type data struct {
 	IP string `json:"ip"`
 }
 
-type CloudflareResponse struct {
-	Result RecordData `json:"result"`
-}
-
-type RecordData struct {
-	IP string `json:"content"`
-}
-
-type UpdateDNSRecord struct {
-	Content string `json:"content"`
-}
-
 func getIP(c *gin.Context) {
 	zoneID := os.Getenv("CF_ZONE_ID")
 	apiToken := os.Getenv("CF_API_TOKEN")
