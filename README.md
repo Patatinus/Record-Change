@@ -3,9 +3,9 @@
 ## About The Project
 This is a simple API to edit and view the context of a record on Cloudflare. It utilizes Cloudflare's API and is built in Go.
 
-This project can be used to easily change a domain's IP address. Great for self hosted services with dynamic IP addresses. Like lending a subdomain for your friend's self hosted Minecraft server or website.
+This project can be used to easily change a domain's IP address. Great for self hosted services with dynamic IP addresses. Like lending a subdomain for your friend's self hosted Minecraft server or website. CNAME is to mask services like e4mc that gives a free and relatively bad looking domains.
 
-Only works with IPv4 for now.
+Only works with IPv4 and CNAME for now.
 
 _Don't tell anyone, but I made this for Cloudflare only because their API is free to use._
 
@@ -80,6 +80,21 @@ curl -X GET "https://Your-Server-URL/currentIP/" \
 ```json
 {"content":"10.10.10.10"}
 ```
+- Request to change the record into CNAME and assigning a FQDN
+```sh
+curl -X PATCH "https://Your-Server-URL/api/cname/" \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"ip\": \"$cname\"}"
+```
+- 200 outcome:
+```json
+{"message":"Successfully changed the target domain to very.real.domain"}
+```
+- 400 outcome due to bad IPv4 address:
+```json
+{"error":"Provided string is not a valid FQDN"}
+```
 
 ### Usage of change_ip.sh
 1. Give execute permissions to the script
@@ -88,9 +103,9 @@ sudo chmod +x change_ip.sh
 ```
 2. Fill in API_URL and API_TOKEN. Make sure API_URL ends with `/currentIP/`
 ```sh
-# You can use http://127.0.0.1:58371/currentIP/ if you are running
+# You can use http://127.0.0.1:58371 if you are running
 # this API on the same device
-API_URL="https://Your-Server-URL/currentIP/"
+API_URL="https://Your-Server-URL"
 API_TOKEN="API-token-you-set-in-env"
 ```
 3. Run the script to see the parameters, then you are ready to go

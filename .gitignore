@@ -2,4 +2,4 @@
 build.sh
 test.txt
 build.sh
-change_server_ip.sh
+change_server_ip*.sh
