@@ -39,7 +39,7 @@ case $1 in
         echo "Usage:"
         echo "--change-ip                           automatically changes the record into an A record and sets ip to the current ip of the device."
         echo "--change-ip-manual <ip address>       automatically changes the record into an A record and sets ip to the given ip address."
-        echo "--change-cname <fqdn>                 automatically changes the record into an CNAME record and sets target to the given FQDN address."
+        echo "--change-cname <fqdn>                 automatically changes the record into a CNAME record and sets target to the given FQDN."
         echo "--get-current                         gets currently applied ip address or FQDN of the record."
     ;;
 esac

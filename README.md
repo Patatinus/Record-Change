@@ -91,7 +91,7 @@ curl -X PATCH "https://Your-Server-URL/api/cname/" \
 ```json
 {"message":"Successfully changed the target domain to very.real.domain"}
 ```
-- 400 outcome due to bad IPv4 address:
+- 400 outcome due to bad FQDN:
 ```json
 {"error":"Provided string is not a valid FQDN"}
 ```
