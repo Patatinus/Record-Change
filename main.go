@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"os"
@@ -17,7 +18,12 @@ import (
 )
 
 type data struct {
-	IP string `json:"ip"`
+	Content string `json:"content"`
+}
+
+type recordSRV struct {
+	Content string `json:"content"`
+	Port    string `json:"port"`
 }
 
 func getIP(c *gin.Context) {
@@ -53,7 +59,7 @@ func patchA(c *gin.Context) {
 		return
 	}
 
-	cleanIP := strings.TrimSpace(newA.IP)
+	cleanIP := strings.TrimSpace(newA.Content)
 
 	ip := net.ParseIP(cleanIP)
 	if ip == nil || ip.To4() == nil {
@@ -65,6 +71,7 @@ func patchA(c *gin.Context) {
 	zoneID := os.Getenv("CF_ZONE_ID")
 	apiToken := os.Getenv("CF_API_TOKEN")
 	recordID := os.Getenv("CF_DNS_RECORD_ID")
+	recordFQDN := os.Getenv("RECORD_FQDN")
 
 	client := cloudflare.NewClient(
 		option.WithAPIToken(apiToken),
@@ -78,6 +85,7 @@ func patchA(c *gin.Context) {
 			Body: dns.ARecordParam{
 				Type:    cloudflare.F(dns.ARecordTypeA),
 				Content: cloudflare.F(cleanIP),
+				Name:    cloudflare.F(recordFQDN),
 			},
 		},
 	)
@@ -98,7 +106,7 @@ func patchCNAME(c *gin.Context) {
 		return
 	}
 
-	cleanCName := strings.TrimSpace(newCName.IP)
+	cleanCName := strings.TrimSpace(newCName.Content)
 
 	if !isValidFQDN(cleanCName) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Provided string is not a valid FQDN"})
@@ -109,6 +117,7 @@ func patchCNAME(c *gin.Context) {
 	zoneID := os.Getenv("CF_ZONE_ID")
 	apiToken := os.Getenv("CF_API_TOKEN")
 	recordID := os.Getenv("CF_DNS_RECORD_ID")
+	recordFQDN := os.Getenv("RECORD_FQDN")
 
 	client := cloudflare.NewClient(
 		option.WithAPIToken(apiToken),
@@ -122,11 +131,80 @@ func patchCNAME(c *gin.Context) {
 			Body: dns.CNAMERecordParam{
 				Type:    cloudflare.F(dns.CNAMERecordTypeCNAME),
 				Content: cloudflare.F(cleanCName),
+				Name:    cloudflare.F(recordFQDN),
 			},
 		},
 	)
 	if err == nil {
 		c.JSON(http.StatusOK, gin.H{"message": "Successfully changed the target domain to " + cleanCName})
+		fmt.Printf("Updated Record: %+v\n", recordResponse)
+	} else {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update the DNS record."})
+		fmt.Printf("Cloudflare API Error: %+v\n", err)
+	}
+}
+
+func patchSRV(c *gin.Context) {
+
+	var newSRV recordSRV
+	if err := c.ShouldBindJSON(&newSRV); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	cleanSRV := strings.TrimSpace(newSRV.Content)
+	intPort, err := strconv.Atoi(strings.TrimSpace(newSRV.Port))
+
+	if !isValidFQDN(cleanSRV) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Provided string is not a valid FQDN"})
+		fmt.Printf("Invalid FQDN: %s\n", cleanSRV)
+		return
+	}
+
+	if err != nil || intPort < 0 || intPort > 65535 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Provided integer is not a valid port number"})
+		fmt.Printf("Invalid port: %d\n", intPort)
+		return
+	}
+
+	zoneID := os.Getenv("CF_ZONE_ID")
+	apiToken := os.Getenv("CF_API_TOKEN")
+	recordID := os.Getenv("CF_DNS_RECORD_ID")
+	recordFQDN := os.Getenv("RECORD_FQDN")
+
+	serviceType := os.Getenv("SERVICE_TYPE")
+
+	SRVRecordName := fmt.Sprintf("%s.%s", serviceType, recordFQDN)
+
+	client := cloudflare.NewClient(
+		option.WithAPIToken(apiToken),
+	)
+
+	srvData := dns.SRVRecordDataParam{
+		Target:   cloudflare.F(cleanSRV),
+		Port:     cloudflare.F(float64(intPort)),
+		Priority: cloudflare.F(float64(0)),
+		Weight:   cloudflare.F(float64(0)),
+	}
+
+	payload := dns.SRVRecordParam{
+		Type:    cloudflare.F(dns.SRVRecordTypeSRV),
+		Name:    cloudflare.F(SRVRecordName),
+		Proxied: cloudflare.F(false),
+		Data:    cloudflare.F(srvData),
+	}
+
+	recordResponse, err := client.DNS.Records.Edit(
+		c.Request.Context(),
+		recordID,
+		dns.RecordEditParams{
+			ZoneID: cloudflare.F(zoneID),
+			Body:   payload,
+		},
+	)
+
+	if err == nil {
+		c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("Successfully changed the target domain to %s with the port %d", cleanSRV, intPort)})
 		fmt.Printf("Updated Record: %+v\n", recordResponse)
 	} else {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update the DNS record."})
@@ -165,9 +243,10 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
-	router.GET("/currentIP/", checkAuth(), getIP)
-	router.PATCH("/currentIP/", checkAuth(), patchA)
+	router.GET("/api/current/", checkAuth(), getIP)
+	router.PATCH("/api/a/", checkAuth(), patchA)
 	router.PATCH("/api/cname/", checkAuth(), patchCNAME)
+	router.PATCH("/api/srv/", checkAuth(), patchSRV)
 
 	router.Run("0.0.0.0:8080")
 }

@@ -3,9 +3,9 @@
 ## About The Project
 This is a simple API to edit and view the context of a record on Cloudflare. It utilizes Cloudflare's API and is built in Go.
 
-This project can be used to easily change a domain's IP address. Great for self hosted services with dynamic IP addresses. Like lending a subdomain for your friend's self hosted Minecraft server or website. CNAME is to mask services like e4mc that gives a free and relatively bad looking domains.
+This project can be used to easily change a domain's IP address. Great for self hosted services with dynamic IP addresses. Like lending a subdomain for your friend's self hosted Minecraft server or website. SRV and CNAME are to mask services like e4mc that gives a free and relatively bad looking domains.
 
-Only works with IPv4 and CNAME for now.
+Only works with A, CNAME and SRV records for now.
 
 _Don't tell anyone, but I made this for Cloudflare only because their API is free to use._
 
@@ -27,11 +27,16 @@ _Don't tell anyone, but I made this for Cloudflare only because their API is fre
    ```sh
    cp .env.example .env
    ```
-3. Enter your Cloudflare API, Zone ID and Domain ID in `.env`
+3. Enter your Cloudflare API, Zone ID, Domain ID, RECORD_FQDN (FQDN you want to use), SERVICE_TYPE (for e4mc like services) and API_PORT in `.env`
    ```txt
    CF_API_TOKEN=cloudflare-api-token
    CF_ZONE_ID=cloudflare-zone-id
    CF_DNS_RECORD_ID=cloudflare-dns-record-id
+
+   RECORD_FQDN=www.example.com
+   SERVICE_TYPE=_service._type
+
+   API_PORT=58371
    ```
 4. Generate a token to ensure authentication and enter it in `.env`. If you ever suspect it is compromised, generate a new one
    ```sh
@@ -42,9 +47,9 @@ _Don't tell anyone, but I made this for Cloudflare only because their API is fre
    ```
 5. Run the API  with Docker
    ```sh
-   docker compose up 
-   # for the first run "docker compose up --build"
-   # it runs on 58371 port, which practically nobody else uses
+   sudo docker compose up 
+   # for the first run "sudo docker compose up --build"
+   # it runs on 58371 port by default, you can change it in .env
    ```
 
 
@@ -61,7 +66,7 @@ App can be used by editing the change_ip.sh and adding the user generated API to
 curl -X PATCH "https://Your-Server-URL/currentIP/" \
             -H "Authorization: Bearer $API_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{\"ip\": \"$ip\"}"
+            -d "{\"content\": \"$ip\"}"
 ``` 
 - 200 outcome:
 ```json
@@ -80,12 +85,12 @@ curl -X GET "https://Your-Server-URL/currentIP/" \
 ```json
 {"content":"10.10.10.10"}
 ```
-- Request to change the record into CNAME and assigning a FQDN
+- Request to change the record into CNAME and assign a FQDN
 ```sh
 curl -X PATCH "https://Your-Server-URL/api/cname/" \
             -H "Authorization: Bearer $API_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{\"ip\": \"$cname\"}"
+            -d "{\"content\": \"$FQDN\"}"
 ```
 - 200 outcome:
 ```json
@@ -94,6 +99,21 @@ curl -X PATCH "https://Your-Server-URL/api/cname/" \
 - 400 outcome due to bad FQDN:
 ```json
 {"error":"Provided string is not a valid FQDN"}
+```
+- Request to change the record into SRV and assign a FQDN and a port
+```sh
+curl -X PATCH "https://Your-Server-URL/api/srv/" \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"$FQDN\", \"port\": \"$PORT\"}"
+```
+- 200 outcome:
+```json
+{"message":"Successfully changed the target domain to www.example2.com with the port 25565"}
+```
+- 400 outcome due to bad port number:
+```json
+{"error":"Provided integer is not a valid port number"}
 ```
 
 ### Usage of change_ip.sh
