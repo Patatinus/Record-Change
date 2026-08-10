@@ -3,7 +3,7 @@
 ## About The Project
 This is a simple API to edit and view the context of a record on Cloudflare. It utilizes Cloudflare's API and is built in Go.
 
-This project can be used to easily change a domain's IP address. Great for self hosted services with dynamic IP addresses. Like lending a subdomain for your friend's self hosted Minecraft server or website. SRV and CNAME are to mask services like e4mc that gives a free and relatively bad looking domains.
+This project can be used to easily change a domain's IP address. Great for self hosted services with dynamic IP address, like lending a subdomain for your friend's self hosted Minecraft server or website. SRV and CNAME are to mask services like e4mc that give free and relatively bad looking domains.
 
 Only works with A, CNAME and SRV records for now.
 
@@ -27,14 +27,14 @@ _Don't tell anyone, but I made this for Cloudflare only because their API is fre
    ```sh
    cp .env.example .env
    ```
-3. Enter your Cloudflare API, Zone ID, Domain ID, RECORD_FQDN (FQDN you want to use), SERVICE_TYPE (for e4mc like services) and API_PORT in `.env`
+3. Enter your Cloudflare API Token, Zone ID, Record ID, RECORD_FQDN (FQDN you want to use), SERVICE_TYPE (for e4mc like services) and API_PORT in `.env`
    ```txt
    CF_API_TOKEN=cloudflare-api-token
    CF_ZONE_ID=cloudflare-zone-id
    CF_DNS_RECORD_ID=cloudflare-dns-record-id
 
    RECORD_FQDN=www.example.com
-   SERVICE_TYPE=_service._type
+   SERVICE_TYPE=_service._type #_minecraft._tcp for minecraft
 
    API_PORT=58371
    ```
@@ -45,10 +45,10 @@ _Don't tell anyone, but I made this for Cloudflare only because their API is fre
    ```txt
    API_TOKEN=the-token-your-server-will-use-to-authorise
    ```
-5. Run the API  with Docker
+5. Run the API with Docker
    ```sh
-   sudo docker compose up 
-   # for the first run "sudo docker compose up --build"
+   sudo docker compose up -d
+   # for the first run "sudo docker compose up --build -d"
    # it runs on 58371 port by default, you can change it in .env
    ```
 
@@ -63,7 +63,7 @@ App can be used by editing the change_ip.sh and adding the user generated API to
 ### curl examples
 - Request to change the record's IP
 ```sh
-curl -X PATCH "https://Your-Server-URL/currentIP/" \
+curl -X PATCH "https://Your-Server-URL/api/a/" \
             -H "Authorization: Bearer $API_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"content\": \"$ip\"}"
@@ -78,7 +78,7 @@ curl -X PATCH "https://Your-Server-URL/currentIP/" \
 ```
 - Request to get the record's current IP
 ```sh
-curl -X GET "https://Your-Server-URL/currentIP/" \
+curl -X GET "https://Your-Server-URL/api/current/" \
             -H "Authorization: Bearer $API_TOKEN"
 ```
 - 200 outcome:
@@ -121,7 +121,7 @@ curl -X PATCH "https://Your-Server-URL/api/srv/" \
 ```sh
 sudo chmod +x change_ip.sh
 ```
-2. Fill in API_URL and API_TOKEN. Make sure API_URL ends with `/currentIP/`
+2. Fill in API_URL and API_TOKEN. Make sure API_URL doesn't end with a "/"
 ```sh
 # You can use http://127.0.0.1:58371 if you are running
 # this API on the same device
