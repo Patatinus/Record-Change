@@ -3,7 +3,7 @@ module main.go
 go 1.25.0
 
 require (
-	github.com/cloudflare/cloudflare-go/v7 v7.8.0
+	github.com/cloudflare/cloudflare-go/v7 v7.11.0
 	github.com/gin-gonic/gin v1.12.0
 )
 
