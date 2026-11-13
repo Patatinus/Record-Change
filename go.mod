@@ -1,9 +1,9 @@
 module main.go
 
-go 1.25.0
+go 1.26
 
 require (
-	github.com/cloudflare/cloudflare-go/v7 v7.8.0
+	github.com/cloudflare/cloudflare-go/v7 v7.15.0
 	github.com/gin-gonic/gin v1.12.0
 )
 
